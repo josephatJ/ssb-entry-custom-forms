@@ -1,7 +1,7 @@
 <style type="text/css">
   .form {
     border: solid 1px #222;
-    width: 602px;
+    width: 632px;
     padding-bottom: 6px;
   }
 
@@ -22,19 +22,218 @@
 </style>
 <script type="text/javascript">
   dhis2.util.on("dhis2.de.event.formReady", function(event, ds) {
+    const orgUnitId = dhis2.de.currentOrganisationUnitId;
+    const selections = dhis2.de.api.getSelections();
+    let previousPeriods = [];
+    console.log("selections", selections);
+    $("#periods").text(periodFormatter(selections.pe.toString()));
+    const date = new Date();
+    const startDate =
+      date.getFullYear() +
+      "-" +
+      selections.pe.toString().substring(4, 6) +
+      "-01";
+    const currentDate = periodFormatter(selections.pe.toString());
+    previousPeriods = createPeriods(startDate, currentDate);
+    const param =
+      "dataSet=" +
+      ds +
+      "&startDate=" +
+      startDate +
+      "&endDate=" +
+      periodFormatter(selections.pe.toString()) +
+      "&orgUnit=" +
+      orgUnitId;
+    // get data Value sets
+    let dataObject = {};
+    let attributesMapping = {
+      MtX2fYwS2hw: "kYPNCDwKgr5",
+      ybxYGSoCT3A: "xw0GYuNHx1l"
+    };
+    $.ajax({
+      url: "../api/dataValueSets",
+      method: "GET",
+      contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+      data: param,
+      success: function(result) {
+        const mappingOfDataElements = [
+          {
+            id: "pBzmjUomfvk",
+            type: "DATAELEMENT"
+          },
+          {
+            id: "nqfGycNO0Pp",
+            type: "DATAELEMENT"
+          },
+          {
+            id: "V6ViAW0w5t5",
+            type: "DATAELEMENT"
+          },
+          {
+            id: "fHmjvgYnQLq",
+            type: "INDICATOR",
+            expression:
+              "(pBzmjUomfvk)+(nqfGycNO0Pp)-(V6ViAW0w5t5)-(oBs9d1uc2zL)"
+          },
+          {
+            id: "oBs9d1uc2zL",
+            type: "DATAELEMENT"
+          }
+        ];
+        const usedPremix = "(oBs9d1uc2zL)";
+        // console.log(createPeriods(startDate, currentDate));
+        // console.log("results", result);
+        result.dataValues.forEach(data => {
+          if (
+            data.attributeOptionCombo ==
+            attributesMapping[selections["oMdhVqled3d"]]
+          ) {
+            dataObject[data.dataElement + ":" + periodFormatter(data.period)] =
+              data.value;
+          }
+        });
+        let tBody = document.getElementById("added-rows");
+        $("#added-rows tr").remove();
+        for (
+          let countOfRows = 0;
+          countOfRows < previousPeriods.length;
+          countOfRows++
+        ) {
+          // let tBody = document.getElementById("added-rows");
+          let row = tBody.insertRow(countOfRows);
+          let cell = row.insertCell(0);
+          cell.innerHTML = previousPeriods[countOfRows];
+          for (
+            let countColumns = 0;
+            countColumns < mappingOfDataElements.length;
+            countColumns++
+          ) {
+            let cell = row.insertCell(countColumns + 1);
+            if (
+              dataObject[
+                mappingOfDataElements[countColumns].id +
+                  ":" +
+                  previousPeriods[countOfRows]
+              ] != undefined
+            ) {
+              cell.innerHTML =
+                "<div style='text-align: center'>" +
+                dataObject[
+                  mappingOfDataElements[countColumns].id +
+                    ":" +
+                    previousPeriods[countOfRows]
+                ] +
+                "</div>";
+            } else {
+              if (mappingOfDataElements[countColumns].type == "INDICATOR") {
+                cell.innerHTML =
+                  "<div style='text-align: center'>" +
+                  evaluateExpression(
+                    mappingOfDataElements[countColumns].expression,
+                    dataObject,
+                    previousPeriods[countOfRows]
+                  ) +
+                  "</div>";
+              } else {
+                cell.innerHTML = "<div style='text-align: center'></div>";
+              }
+            }
+          }
+        }
+        // calculate total used premixed
+        totalPremixUsed = Number($("#oBs9d1uc2zL-HllvX50cXC0-val").val());
+        previousPeriods.forEach(pe => {
+          totalPremixUsed += evaluateExpression(usedPremix, dataObject, pe);
+        });
+        $("#oBs9d1uc2zL-kg").html(
+          "<div style='text-align: center'>" +
+            (totalPremixUsed * 25).toString() +
+            "</div>"
+        );
+        $("#oBs9d1uc2zL-grams").html(
+          "<div style='text-align: center'>" +
+            (totalPremixUsed * 25 * 1000).toString() +
+            "</div>"
+        );
+      },
+      error: function(err) {
+        console.log("Error:", err);
+      }
+    });
+
+    $("#oBs9d1uc2zL-HllvX50cXC0-val").change(function() {
+      const usedPremix = "(oBs9d1uc2zL)";
+      totalPremixUsed = Number($(this).val());
+      previousPeriods.forEach(pe => {
+        totalPremixUsed += evaluateExpression(usedPremix, dataObject, pe);
+      });
+      $("#oBs9d1uc2zL-kg").html(
+        "<div style='text-align: center'>" +
+          (totalPremixUsed * 25).toString() +
+          "</div>"
+      );
+      $("#oBs9d1uc2zL-grams").html(
+        "<div style='text-align: center'>" +
+          (totalPremixUsed * 25 * 1000).toString() +
+          "</div>"
+      );
+    });
+
+    function evaluateExpression(expression, data, pe) {
+      let orginalExpression = expression;
+      expression
+        .split("(")
+        .join("")
+        .split(")")
+        .join("")
+        .split("-")
+        .join("+")
+        .split("+")
+        .forEach(elem => {
+          if (data[elem + ":" + pe] != undefined) {
+            orginalExpression = orginalExpression.replace(
+              elem,
+              data[elem + ":" + pe]
+            );
+          } else {
+            orginalExpression = orginalExpression.replace(elem, 0);
+          }
+        });
+      console.log(eval(orginalExpression));
+      return eval(orginalExpression);
+    }
+
+    function createPeriods(startDate, currentDate) {
+      let pes = [];
+      if (startDate != currentDate) {
+        for (
+          let count = 1;
+          count < Number(currentDate.split("-")[2]);
+          count++
+        ) {
+          pes.push(currentDate.substring(0, 8) + formatDate(count.toString()));
+        }
+      }
+      return pes;
+    }
+
+    function formatDate(pe) {
+      if (pe.length == 1) {
+        return "0" + pe;
+      } else {
+        return pe;
+      }
+    }
+
     function periodFormatter(period) {
       return (
-        period.pe.substring(0, 4) +
+        period.substring(0, 4) +
         "-" +
-        period.pe.substring(4, 6) +
+        period.substring(4, 6) +
         "-" +
-        period.pe.substring(6)
+        period.substring(6)
       );
     }
-    var orgUnitId = dhis2.de.currentOrganisationUnitId;
-    var period = dhis2.de.api.getSelections();
-    console.log("pe", period);
-    $("#periods").text(periodFormatter(period));
   });
 
   if (dhis2.dsr) {
@@ -55,19 +254,9 @@
     }
   }
 </script>
-<style type="text/css">
-  .products {
-    float: left;
-    width: 140px;
-  }
-
-  select {
-    padding: 6px;
-  }
-</style>
 <div class="form">
   <div class="doc-header">
-    <table class="table" style="width: 600px !important">
+    <table class="table" style="width: 630px !important">
       <thead>
         <tr>
           <th colspan="2" rowspan="2">
@@ -127,51 +316,76 @@
           <th>25 Kg Bag</th>
         </tr>
       </tbody>
+      <tbody id="added-rows"></tbody>
       <tbody id="report-elements">
-        <tr>
+        <tr id="default">
           <td id="periods">&nbsp;</td>
           <td>
             <input
-              id="pBzmjUomfvk-Du344sXMzoS-val"
+              id="pBzmjUomfvk-HllvX50cXC0-val"
               name="entryfield"
-              title="undefined"
-              value="[ undefined ]"
+              title="Premix Opening stock 25Kg"
+              value="[ Premix Opening stock 25Kg ]"
             />
           </td>
           <td>
             <input
-              id="nqfGycNO0Pp-Du344sXMzoS-val"
+              id="nqfGycNO0Pp-HllvX50cXC0-val"
               name="entryfield"
-              title="undefined"
-              value="[ undefined ]"
+              title="Premix received 25Kg"
+              value="[ Premix received 25Kg ]"
             />
           </td>
           <td>
             <input
-              id="V6ViAW0w5t5-Du344sXMzoS-val"
+              id="V6ViAW0w5t5-HllvX50cXC0-val"
               name="entryfield"
-              title="undefined"
-              value="[ undefined ]"
+              title="Premix Transferred 25 Kg"
+              value="[ Premix Transferred 25 Kg ]"
             />
           </td>
           <td>
             <input
-              id="indicatorefvHlO6T0ez"
-              indicatorid="efvHlO6T0ez"
+              id="indicatorfHmjvgYnQLq"
+              indicatorid="fHmjvgYnQLq"
               name="indicator"
               readonly="readonly"
-              title="Premix Local closing stock 25 Kg"
-              value="[ Premix Local closing stock 25 Kg ]"
+              title="Premix closing stock 25 Kg"
+              value="[ Premix closing stock 25 Kg ]"
             />
           </td>
           <td>
             <input
-              id="oBs9d1uc2zL-Du344sXMzoS-val"
+              id="oBs9d1uc2zL-HllvX50cXC0-val"
               name="entryfield"
-              title="undefined"
-              value="[ undefined ]"
+              title="Premix used 25 Kg"
+              value="[ Premix used 25 Kg ]"
             />
           </td>
+        </tr>
+        <tr>
+          <td>&nbsp;</td>
+          <td colspan="2" rowspan="2" style="text-align: center;">
+            <strong>Flour Treated</strong>
+          </td>
+          <td colspan="3" rowspan="1" style="text-align: center;">
+            <strong>Total Premix used</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>&nbsp;</td>
+          <td style="text-align: center;"><strong>Kg</strong></td>
+          <td colspan="2" rowspan="1" style="text-align: center;">
+            <strong>Grams</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>&nbsp;</td>
+          <td colspan="2" style="text-align: center;">
+            <input id="gbBdT3azQze" name="entryfield" />
+          </td>
+          <td id="oBs9d1uc2zL-kg">&nbsp;</td>
+          <td id="oBs9d1uc2zL-grams" colspan="2" rowspan="1">&nbsp;</td>
         </tr>
       </tbody>
     </table>
