@@ -25,7 +25,6 @@
     const orgUnitId = dhis2.de.currentOrganisationUnitId;
     const selections = dhis2.de.api.getSelections();
     let previousPeriods = [];
-    console.log("selections", selections);
     $("#periods").text(periodFormatter(selections.pe.toString()));
     const date = new Date();
     const startDate =
@@ -80,86 +79,114 @@
             type: "DATAELEMENT"
           }
         ];
-        const usedPremix = "(oBs9d1uc2zL)";
-        // console.log(createPeriods(startDate, currentDate));
-        // console.log("results", result);
-        result.dataValues.forEach(data => {
-          if (
-            data.attributeOptionCombo ==
-            attributesMapping[selections["oMdhVqled3d"]]
-          ) {
-            dataObject[data.dataElement + ":" + periodFormatter(data.period)] =
-              data.value;
-          }
-        });
         let tBody = document.getElementById("added-rows");
         $("#added-rows tr").remove();
-        for (
-          let countOfRows = 0;
-          countOfRows < previousPeriods.length;
-          countOfRows++
-        ) {
-          // let tBody = document.getElementById("added-rows");
-          let row = tBody.insertRow(countOfRows);
-          let cell = row.insertCell(0);
-          cell.innerHTML = previousPeriods[countOfRows];
-          for (
-            let countColumns = 0;
-            countColumns < mappingOfDataElements.length;
-            countColumns++
-          ) {
-            let cell = row.insertCell(countColumns + 1);
+        if (result && result.dataValues) {
+          const usedPremix = "(oBs9d1uc2zL)";
+          // console.log(createPeriods(startDate, currentDate));
+          // console.log("results", result);
+          result.dataValues.forEach(data => {
             if (
-              dataObject[
-                mappingOfDataElements[countColumns].id +
-                  ":" +
-                  previousPeriods[countOfRows]
-              ] != undefined
+              data.attributeOptionCombo ==
+              attributesMapping[selections["oMdhVqled3d"]]
             ) {
-              cell.innerHTML =
-                "<div style='text-align: center'>" +
+              dataObject[
+                data.dataElement + ":" + periodFormatter(data.period)
+              ] = data.value;
+            }
+          });
+          for (
+            let countOfRows = 0;
+            countOfRows < previousPeriods.length;
+            countOfRows++
+          ) {
+            // let tBody = document.getElementById("added-rows");
+            let row = tBody.insertRow(countOfRows);
+            let cell = row.insertCell(0);
+            cell.innerHTML = previousPeriods[countOfRows];
+            for (
+              let countColumns = 0;
+              countColumns < mappingOfDataElements.length;
+              countColumns++
+            ) {
+              let cell = row.insertCell(countColumns + 1);
+              if (
                 dataObject[
                   mappingOfDataElements[countColumns].id +
                     ":" +
                     previousPeriods[countOfRows]
-                ] +
-                "</div>";
-            } else {
-              if (mappingOfDataElements[countColumns].type == "INDICATOR") {
+                ] != undefined
+              ) {
                 cell.innerHTML =
                   "<div style='text-align: center'>" +
-                  evaluateExpression(
-                    mappingOfDataElements[countColumns].expression,
-                    dataObject,
-                    previousPeriods[countOfRows]
-                  ) +
+                  dataObject[
+                    mappingOfDataElements[countColumns].id +
+                      ":" +
+                      previousPeriods[countOfRows]
+                  ] +
                   "</div>";
               } else {
-                cell.innerHTML = "<div style='text-align: center'></div>";
+                if (mappingOfDataElements[countColumns].type == "INDICATOR") {
+                  cell.innerHTML =
+                    "<div style='text-align: center'>" +
+                    evaluateExpression(
+                      mappingOfDataElements[countColumns].expression,
+                      dataObject,
+                      previousPeriods[countOfRows]
+                    ) +
+                    "</div>";
+                } else {
+                  cell.innerHTML = "<div style='text-align: center'></div>";
+                }
               }
             }
           }
+          // calculate total used premixed
+          totalPremixUsed = Number($("#oBs9d1uc2zL-HllvX50cXC0-val").val());
+          previousPeriods.forEach(pe => {
+            totalPremixUsed += evaluateExpression(usedPremix, dataObject, pe);
+          });
+          $("#oBs9d1uc2zL-kg").html(
+            "<div style='text-align: center'>" +
+              (totalPremixUsed * 25).toString() +
+              "</div>"
+          );
+          $("#oBs9d1uc2zL-grams").html(
+            "<div style='text-align: center'>" +
+              (totalPremixUsed * 25 * 1000).toString() +
+              "</div>"
+          );
         }
-        // calculate total used premixed
-        totalPremixUsed = Number($("#oBs9d1uc2zL-HllvX50cXC0-val").val());
-        previousPeriods.forEach(pe => {
-          totalPremixUsed += evaluateExpression(usedPremix, dataObject, pe);
-        });
-        $("#oBs9d1uc2zL-kg").html(
-          "<div style='text-align: center'>" +
-            (totalPremixUsed * 25).toString() +
-            "</div>"
-        );
-        $("#oBs9d1uc2zL-grams").html(
-          "<div style='text-align: center'>" +
-            (totalPremixUsed * 25 * 1000).toString() +
-            "</div>"
-        );
       },
       error: function(err) {
         console.log("Error:", err);
       }
     });
+
+    const parameters =
+      "dataSet=EfJRatMPNCf&period=" +
+      selections.pe.substring(0, 6) +
+      "&orgUnit=" +
+      selections.ou;
+    $.ajax({
+      url: "../api/dataValueSets",
+      method: "GET",
+      contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+      data: parameters,
+      success: function(result) {
+        if (result && result.dataValues) {
+          $("#gbBdT3azQze").val(result.dataValues[0].value);
+        }
+      }
+    });
+
+    // hide input for flour treated when the date for entering does not reach
+    // console.log("date", Number(selections.pe.substring(6)));
+    if (Number(selections.pe.substring(6)) >= 28) {
+      $("#gbBdT3azQze").attr("disabled", false);
+    } else {
+      $("#gbBdT3azQze").attr("disabled", true);
+    }
 
     $("#oBs9d1uc2zL-HllvX50cXC0-val").change(function() {
       const usedPremix = "(oBs9d1uc2zL)";
@@ -177,6 +204,27 @@
           (totalPremixUsed * 25 * 1000).toString() +
           "</div>"
       );
+    });
+
+    $("#gbBdT3azQze").change(function() {
+      const inputValue = $(this).val();
+      const parameters =
+        "ds=EfJRatMPNCf" +
+        "&de=gbBdT3azQze&pe=" +
+        selections.pe.substring(0, 6) +
+        "&ou=" +
+        selections.ou +
+        "&value=" +
+        inputValue;
+      $.ajax({
+        url: "../api/dataValues",
+        method: "POST",
+        contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+        data: parameters,
+        success: function(result) {
+          console.log(result);
+        }
+      });
     });
 
     function evaluateExpression(expression, data, pe) {
@@ -199,7 +247,6 @@
             orginalExpression = orginalExpression.replace(elem, 0);
           }
         });
-      console.log(eval(orginalExpression));
       return eval(orginalExpression);
     }
 
@@ -382,7 +429,11 @@
         <tr>
           <td>&nbsp;</td>
           <td colspan="2" style="text-align: center;">
-            <input id="gbBdT3azQze" name="entryfield" />
+            <input
+              id="gbBdT3azQze"
+              style="text-align: center;"
+              name="entryfield"
+            />
           </td>
           <td id="oBs9d1uc2zL-kg">&nbsp;</td>
           <td id="oBs9d1uc2zL-grams" colspan="2" rowspan="1">&nbsp;</td>
