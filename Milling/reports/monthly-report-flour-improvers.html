@@ -447,7 +447,7 @@
                         count < $scope.metadataDefn.length;
                         count++
                       ) {
-                        if (count != 0) {
+                        if (count != 0 && count != 6) {
                           if (
                             $scope.metadataDefn[count]["row"][0]["id"] ==
                             "dosage"
@@ -474,12 +474,15 @@
                     }
                   );
                   if ($scope.indicatorsList.length > 0) {
-                    var totlIndicators = $scope.indicatorsList.length;
-                    var currentLoadedIndicators = 0;
+                    const totlIndicators = $scope.indicatorsList.length;
+                    let currentLoadedIndicators = 0;
                     angular.forEach($scope.indicatorsList, function(indicator) {
-                      var dataUrl =
-                        "../api/analytics?dimension=dx:" +
-                        indicator.id +
+                      let dataUrl =
+                        "../api/analytics?dimension=dx:" + indicator.id;
+                      if (indicator.dynamicDimension != "") {
+                        dataUrl += "&dimension=" + indicator.dynamicDimension;
+                      }
+                      dataUrl +=
                         "&dimension=ou:" +
                         orgUnits.join(";") +
                         "&filter=pe:" +
@@ -496,9 +499,17 @@
                         angular.forEach(indicatorData.data["rows"], function(
                           row
                         ) {
-                          $scope.valuesObject[row[0] + "-" + row[1]] = Number(
-                            parseFloat(row[2]).toFixed(0)
-                          ).toLocaleString();
+                          if (row.length > 8) {
+                            $scope.valuesObject[
+                              row[0] + "-" + row[1] + "-" + row[2]
+                            ] = Number(
+                              parseFloat(row[3]).toFixed(0)
+                            ).toLocaleString();
+                          } else {
+                            $scope.valuesObject[row[0] + "-" + row[1]] = Number(
+                              parseFloat(row[2]).toFixed(0)
+                            ).toLocaleString();
+                          }
                         });
                         console.log("valuesObject", $scope.valuesObject);
                         $scope.loadingAmount =
